@@ -1,0 +1,30 @@
+# build output
+build/
+out/
+cmake-build-*/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+_deps/
+
+# compiler / tooling
+compile_commands.json
+.cache/
+*.o
+*.a
+*.dSYM/
+
+# editors
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# downloaded map tiles (kept out of git — they can be large and are not ours)
+tiles/
