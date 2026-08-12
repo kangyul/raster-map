@@ -9,11 +9,11 @@ reading about it.
 
 ## Status
 
-Early. Nothing renders yet.
+Early. Opens a window with an OpenGL context; nothing is drawn yet.
 
 ## Planned scope
 
-- [ ] Window and GL context (GLFW)
+- [x] Window and GL context (GLFW)
 - [ ] Render a single textured quad
 - [ ] Load PNG tiles from disk
 - [ ] Web Mercator projection and tile addressing (z/x/y)
