@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(RasterMap LANGUAGES CXX)
 
+# Emit build/compile_commands.json so editors and clang-tidy see the exact
+# flags each file is compiled with — including headers fetched into build/.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_executable(raster-map)
 
 target_sources(raster-map

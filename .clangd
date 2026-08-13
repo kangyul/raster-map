@@ -1,0 +1,4 @@
+CompileFlags:
+  # compile_commands.json is generated into build/ by CMake
+  # (CMAKE_EXPORT_COMPILE_COMMANDS in CMakeLists.txt).
+  CompilationDatabase: build
