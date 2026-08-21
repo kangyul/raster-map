@@ -28,3 +28,6 @@ compile_commands.json
 
 # downloaded map tiles (kept out of git — they can be large and are not ours)
 tiles/
+
+# throwaway experiment file (see the guarded `scratch` target in CMakeLists.txt)
+src/scratch.cpp

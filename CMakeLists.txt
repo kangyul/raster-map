@@ -32,4 +32,13 @@ FetchContent_MakeAvailable(glfw)
 
 find_package(OpenGL REQUIRED)
 
+# Optional sandbox for experiments: `cp src/main.cpp src/scratch.cpp` and break
+# things freely. Untracked, so the target only exists when the file does.
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/scratch.cpp)
+  add_executable(scratch)
+  target_sources(scratch PRIVATE src/scratch.cpp)
+  target_compile_features(scratch PRIVATE cxx_std_20)
+  target_link_libraries(scratch PRIVATE glfw OpenGL::GL)
+endif()
+
 target_link_libraries(raster-map PRIVATE glfw OpenGL::GL)
