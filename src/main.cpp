@@ -11,11 +11,35 @@ const char *vertexShaderSource = "#version 330 core\n"
   "}\0";
 
 const char *fragmentShaderSource = "#version 330 core\n"
-  "out vec4 FragColor;"
+  "out vec4 FragColor;\n"
   "void main()\n"
   "{\n"
   "  FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
   "}\0";
+
+// Shaders are compiled at runtime, so a mistake in the GLSL above shows up as a
+// blank window rather than a build error. Ask the driver what went wrong.
+bool shaderCompiled(unsigned int shader, const char* name) {
+  int success;
+  glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+  if (!success) {
+    char log[512];
+    glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
+    std::cerr << name << " shader failed to compile:\n" << log;
+  }
+  return success;
+}
+
+bool programLinked(unsigned int program) {
+  int success;
+  glGetProgramiv(program, GL_LINK_STATUS, &success);
+  if (!success) {
+    char log[512];
+    glGetProgramInfoLog(program, sizeof(log), nullptr, log);
+    std::cerr << "shader program failed to link:\n" << log;
+  }
+  return success;
+}
 
 void processInput(GLFWwindow* window) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -51,17 +75,20 @@ int main() {
   vertexShader = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
   glCompileShader(vertexShader);
+  shaderCompiled(vertexShader, "vertex");
 
   unsigned int fragmentShader;
   fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
   glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
   glCompileShader(fragmentShader);
+  shaderCompiled(fragmentShader, "fragment");
 
   unsigned int shaderProgram;
   shaderProgram = glCreateProgram();
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
   glLinkProgram(shaderProgram);
+  programLinked(shaderProgram);
   glUseProgram(shaderProgram);
   glDeleteShader(vertexShader);
   glDeleteShader(fragmentShader);
