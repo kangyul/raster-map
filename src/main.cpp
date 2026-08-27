@@ -41,7 +41,7 @@ bool programLinked(unsigned int program) {
   return success;
 }
 
-void processInput(GLFWwindow* window) {
+void closeOnEscape(GLFWwindow* window) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, true);
   }
@@ -105,7 +105,7 @@ int main() {
   glEnableVertexAttribArray(0);
 
   while(!glfwWindowShouldClose(window)) {
-    processInput(window);
+    closeOnEscape(window);
     glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     
