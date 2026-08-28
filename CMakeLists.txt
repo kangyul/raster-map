@@ -10,10 +10,11 @@ add_executable(raster-map)
 
 target_sources(raster-map
   PRIVATE
-    src/main.cpp
+    src/main.cpp src/shader.cpp
 )
 
 target_compile_features(raster-map PRIVATE cxx_std_20)
+target_compile_definitions(raster-map PRIVATE GL_SILENCE_DEPRECATION)
 
 include(FetchContent)
 

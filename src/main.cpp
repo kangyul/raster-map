@@ -1,7 +1,7 @@
-#define GL_SILENCE_DEPRECATION
 #include <OpenGL/gl3.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include "shader.hpp"
 
 const char *vertexShaderSource = "#version 330 core\n"
   "layout (location = 0) in vec3 aPos;\n"
@@ -17,52 +17,13 @@ const char *fragmentShaderSource = "#version 330 core\n"
   "  FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
   "}\0";
 
-// Shaders are compiled at runtime, so a mistake in the GLSL above shows up as a
-// blank window rather than a build error. Ask the driver what went wrong.
-bool shaderCompiled(unsigned int shader, const char* name) {
-  int success;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-  if (!success) {
-    char log[512];
-    glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
-    std::cerr << name << " shader failed to compile:\n" << log;
-  }
-  return success;
-}
-
-bool programLinked(unsigned int program) {
-  int success;
-  glGetProgramiv(program, GL_LINK_STATUS, &success);
-  if (!success) {
-    char log[512];
-    glGetProgramInfoLog(program, sizeof(log), nullptr, log);
-    std::cerr << "shader program failed to link:\n" << log;
-  }
-  return success;
-}
-
 void closeOnEscape(GLFWwindow* window) {
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
     glfwSetWindowShouldClose(window, true);
   }
 }
 
-int main() {
-  if (!glfwInit()) { return -1; }
-
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-  
-  GLFWwindow* window = glfwCreateWindow(800, 600, "raster-map", nullptr, nullptr);
-  if (!window) { 
-    glfwTerminate();  
-    return -1;
-  }
-
-  glfwMakeContextCurrent(window);
-
+int run(GLFWwindow* window) {
   std::cout << glGetString(GL_VERSION) << '\n';
 
   float vertices[] = {
@@ -77,27 +38,8 @@ int main() {
     1, 2, 3 // second-triangle
   };
 
-  unsigned int vertexShader;
-  vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-  glCompileShader(vertexShader);
-  shaderCompiled(vertexShader, "vertex");
-
-  unsigned int fragmentShader;
-  fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-  glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-  glCompileShader(fragmentShader);
-  shaderCompiled(fragmentShader, "fragment");
-
-  unsigned int shaderProgram;
-  shaderProgram = glCreateProgram();
-  glAttachShader(shaderProgram, vertexShader);
-  glAttachShader(shaderProgram, fragmentShader);
-  glLinkProgram(shaderProgram);
-  programLinked(shaderProgram);
-  glUseProgram(shaderProgram);
-  glDeleteShader(vertexShader);
-  glDeleteShader(fragmentShader);
+  Shader shader(vertexShaderSource, fragmentShaderSource);
+  if(!shader.valid()) { return -1; }
 
   unsigned int VBO, VAO, EBO;
   glGenBuffers(1, &VBO);
@@ -119,7 +61,7 @@ int main() {
     glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     
-    glUseProgram(shaderProgram);
+    shader.use();
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     
@@ -127,7 +69,26 @@ int main() {
     glfwPollEvents();
   }
 
-  glfwTerminate();
-
   return 0;
+}
+
+int main() {
+  if (!glfwInit()) { return -1; }
+
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+  
+  GLFWwindow* window = glfwCreateWindow(800, 600, "raster-map", nullptr, nullptr);
+  if (!window) { 
+    glfwTerminate();  
+    return -1;
+  }
+
+  glfwMakeContextCurrent(window);
+
+  int result = run(window);
+  glfwTerminate();
+  return result;
 }
