@@ -9,7 +9,8 @@ reading about it.
 
 ## Status
 
-Early. Opens a window with an OpenGL context; nothing is drawn yet.
+Early. Draws a solid-color quad through a compiled shader program.
+No textures, tiles, or camera yet.
 
 ## Planned scope
 
