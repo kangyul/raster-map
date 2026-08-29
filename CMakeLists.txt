@@ -15,6 +15,7 @@ target_sources(raster-map
 
 target_compile_features(raster-map PRIVATE cxx_std_20)
 target_compile_definitions(raster-map PRIVATE GL_SILENCE_DEPRECATION)
+target_compile_options(raster-map PRIVATE -Wall -Wextra)
 
 include(FetchContent)
 

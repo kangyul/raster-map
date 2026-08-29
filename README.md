@@ -9,13 +9,13 @@ reading about it.
 
 ## Status
 
-Early. Draws a solid-color quad through a compiled shader program.
-No textures, tiles, or camera yet.
+Early. Draws a textured quad - a checkerboard generated in code.
+No tiles, projections, or camera yet.
 
 ## Planned scope
 
 - [x] Window and GL context (GLFW)
-- [ ] Render a single textured quad
+- [x] Render a single textured quad
 - [ ] Load PNG tiles from disk
 - [ ] Web Mercator projection and tile addressing (z/x/y)
 - [ ] Pan and zoom with a 2D camera

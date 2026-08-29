@@ -9,6 +9,8 @@ public:
   void use() const;
   bool valid() const;
 
+  unsigned int& getShaderProgram() { return shaderProgram; }
+
 private:
   unsigned int shaderProgram = 0;
   bool ok_ = false;

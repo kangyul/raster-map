@@ -3,6 +3,8 @@
 #include <iostream>
 #include "shader.hpp"
 
+constexpr int checkerSize = 8;
+
 const char *vertexShaderSource = "#version 330 core\n"
   "layout (location = 0) in vec3 aPos;\n"
   "layout (location = 1) in vec2 aTexCoord;\n"
@@ -16,9 +18,10 @@ const char *vertexShaderSource = "#version 330 core\n"
 const char *fragmentShaderSource = "#version 330 core\n"
   "out vec4 FragColor;\n"
   "in vec2 TexCoord;\n"
+  "uniform sampler2D ourTexture;\n"
   "void main()\n"
   "{\n"
-  "  FragColor = vec4(TexCoord.x, TexCoord.y, 0.0f, 1.0f);\n"
+  "  FragColor = texture(ourTexture, TexCoord);\n"
   "}\0";
 
 void closeOnEscape(GLFWwindow* window) {
@@ -42,6 +45,15 @@ int run(GLFWwindow* window) {
     1, 2, 3 // second-triangle
   };
 
+  unsigned char checkerBoard[checkerSize][checkerSize][3];
+
+  for(int row=0; row<checkerSize; ++row) {
+    for(int col=0; col<checkerSize; ++col) {
+      unsigned char value = ((row+col) % 2 == 0) ? 255 : 0;
+      for(int channel=0; channel<3; ++channel) checkerBoard[row][col][channel] = value;
+    }
+  }
+
   Shader shader(vertexShaderSource, fragmentShaderSource);
   if(!shader.valid()) { return -1; }
 
@@ -62,6 +74,17 @@ int run(GLFWwindow* window) {
 
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
+
+  unsigned int texture;
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, checkerSize, checkerSize, 0, GL_RGB, GL_UNSIGNED_BYTE, checkerBoard);
 
   while(!glfwWindowShouldClose(window)) {
     closeOnEscape(window);
