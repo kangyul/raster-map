@@ -9,14 +9,15 @@ reading about it.
 
 ## Status
 
-Early. Draws a textured quad - a checkerboard generated in code.
-No tiles, projections, or camera yet.
+Early. Draws a single map tile — a PNG read from disk and uploaded as a
+texture. No projection, tile addressing, or camera yet: the tile is stretched
+across one fixed quad, so it does not hold its square aspect.
 
 ## Planned scope
 
 - [x] Window and GL context (GLFW)
 - [x] Render a single textured quad
-- [ ] Load PNG tiles from disk
+- [x] Load PNG tiles from disk
 - [ ] Web Mercator projection and tile addressing (z/x/y)
 - [ ] Pan and zoom with a 2D camera
 - [ ] Load only the tiles the viewport needs
@@ -25,6 +26,19 @@ No tiles, projections, or camera yet.
 
 Tiles are read from local files to begin with, so the early work stays focused
 on rendering rather than networking.
+
+## Tiles
+
+Tile images are not checked in — they are not ours to redistribute. Fetch the
+one the program currently expects:
+
+```bash
+mkdir -p tiles/0/0
+curl -o tiles/0/0/0.png https://tile.openstreetmap.org/0/0/0.png
+```
+
+That is the whole world at zoom 0. Tile data is © OpenStreetMap contributors;
+the public tile server is for light use only, not bulk downloading.
 
 ## Building
 
@@ -36,6 +50,9 @@ cmake -B build
 cmake --build build
 ./build/raster-map
 ```
+
+The tile path is relative to the working directory, so run the binary from the
+repository root rather than from `build/`.
 
 ## License
 
