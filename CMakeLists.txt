@@ -10,7 +10,7 @@ add_executable(raster-map)
 
 target_sources(raster-map
   PRIVATE
-    src/main.cpp src/shader.cpp
+    src/main.cpp src/shader.cpp src/stb_image_impl.cpp
 )
 
 target_compile_features(raster-map PRIVATE cxx_std_20)
@@ -31,6 +31,17 @@ set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(glfw)
+
+FetchContent_Declare(
+  stb
+  GIT_REPOSITORY https://github.com/nothings/stb.git
+  GIT_TAG        master
+  GIT_SHALLOW    TRUE
+)
+
+FetchContent_MakeAvailable(stb)
+
+target_include_directories(raster-map PRIVATE ${stb_SOURCE_DIR})
 
 find_package(OpenGL REQUIRED)
 

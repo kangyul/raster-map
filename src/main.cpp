@@ -2,8 +2,7 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include "shader.hpp"
-
-constexpr int checkerSize = 8;
+#include "stb_image.h"
 
 const char *vertexShaderSource = "#version 330 core\n"
   "layout (location = 0) in vec3 aPos;\n"
@@ -33,11 +32,14 @@ void closeOnEscape(GLFWwindow* window) {
 int run(GLFWwindow* window) {
   std::cout << glGetString(GL_VERSION) << '\n';
 
+  // PNG's (0,0) is top-left  whereas OpenGL texture's (0,0) is bottom left
+  // v-value is opposite to image row order; flip only happens here
+  // This direction matches with the y-down map coordinate.
   float vertices[] = {
-      0.5f,    0.5f,   0.0f,   1.0f,  1.0f,// top-right
-      0.5f,   -0.5f,   0.0f,   1.0f,  0.0f,// bottom-right
-    -0.5f,  -0.5f,  0.0f,  0.0f, 0.0f,// bottom-left
-    -0.5f,   0.5f,  0.0f,  0.0f, 1.0f// top-left
+      0.5f,    0.5f,   0.0f,   1.0f,  0.0f,// top-right
+      0.5f,   -0.5f,   0.0f,   1.0f,  1.0f,// bottom-right
+    -0.5f,  -0.5f,  0.0f,  0.0f, 1.0f,// bottom-left
+    -0.5f,   0.5f,  0.0f,  0.0f, 0.0f// top-left
   };
 
   unsigned int indices[] = {
@@ -45,13 +47,12 @@ int run(GLFWwindow* window) {
     1, 2, 3 // second-triangle
   };
 
-  unsigned char checkerBoard[checkerSize][checkerSize][3];
-
-  for(int row=0; row<checkerSize; ++row) {
-    for(int col=0; col<checkerSize; ++col) {
-      unsigned char value = ((row+col) % 2 == 0) ? 255 : 0;
-      for(int channel=0; channel<3; ++channel) checkerBoard[row][col][channel] = value;
-    }
+  // load tiles/0/0/0.png
+  int width, height;
+  unsigned char *data = stbi_load("tiles/0/0/0.png", &width, &height, nullptr, 4);
+  if (!data) {
+    std::cout << "Failed to load texture: " << stbi_failure_reason() << std::endl;
+    return -1;
   }
 
   Shader shader(vertexShaderSource, fragmentShaderSource);
@@ -84,7 +85,8 @@ int run(GLFWwindow* window) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, checkerSize, checkerSize, 0, GL_RGB, GL_UNSIGNED_BYTE, checkerBoard);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+  stbi_image_free(data);
 
   while(!glfwWindowShouldClose(window)) {
     closeOnEscape(window);
