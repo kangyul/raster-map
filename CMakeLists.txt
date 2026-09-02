@@ -11,6 +11,7 @@ add_executable(raster-map)
 target_sources(raster-map
   PRIVATE
     src/main.cpp src/shader.cpp src/stb_image_impl.cpp
+    src/mercator.cpp
 )
 
 target_compile_features(raster-map PRIVATE cxx_std_20)

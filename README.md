@@ -34,11 +34,17 @@ one the program currently expects:
 
 ```bash
 mkdir -p tiles/0/0
-curl -o tiles/0/0/0.png https://tile.openstreetmap.org/0/0/0.png
+curl -A "raster-map/0.1 (learning project)" \
+     -o tiles/0/0/0.png https://tile.openstreetmap.org/0/0/0.png
 ```
 
-That is the whole world at zoom 0. Tile data is © OpenStreetMap contributors;
-the public tile server is for light use only, not bulk downloading.
+That is the whole world at zoom 0. The `-A` is not optional: OpenStreetMap's
+tile policy requires a User-Agent that identifies the application, and a request
+without one comes back as HTTP 200 carrying an "access blocked" image rather
+than an error — so it fails silently, and the map renders the notice.
+
+Tile data is © OpenStreetMap contributors; the public tile server is for light
+use only, not bulk downloading.
 
 ## Building
 
