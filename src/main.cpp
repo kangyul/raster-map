@@ -1,16 +1,30 @@
 #include <OpenGL/gl3.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
+#include <vector>
+#include <format>
+
+#include "mercator.hpp"
 #include "shader.hpp"
 #include "stb_image.h"
+
+struct NDCRect {
+  float offsetX, offsetY, scaleX, scaleY;
+};
+
+struct Tile {
+  TileId id;
+  unsigned int texture;
+};
 
 const char *vertexShaderSource = "#version 330 core\n"
   "layout (location = 0) in vec3 aPos;\n"
   "layout (location = 1) in vec2 aTexCoord;\n"
+  "uniform vec4 uTileRect; // xy = offset, zw = scale\n"
   "out vec2 TexCoord;\n"
   "void main()\n"
   "{\n"
-  "  gl_Position = vec4(aPos, 1.0);\n"
+  "  gl_Position = vec4(aPos.xy * uTileRect.zw + uTileRect.xy, 0.0, 1.0);\n"
   "  TexCoord = aTexCoord;\n"
   "}\0";
 
@@ -29,31 +43,55 @@ void closeOnEscape(GLFWwindow* window) {
   }
 }
 
+NDCRect tileToNDC(TileId tile) {
+  int n = 1 << tile.z;
+  float scaleX =  2.0 / n;
+  float scaleY = -2.0 / n; // The one y flip in the pipeline: tile y grows south, NDC y grows north.
+  float offsetX = 2.0 * tile.x / n - 1.0;
+  float offsetY = 1.0 - 2.0 * tile.y / n;
+  return {.offsetX = offsetX, .offsetY = offsetY, .scaleX = scaleX, .scaleY = scaleY};
+}
+
+unsigned int loadTexture(const char* path) {
+  int width, height;
+  unsigned char *data = stbi_load(path, &width, &height, nullptr, 4);
+  if (!data) {
+    std::cerr << "Failed to load texture " << path << ": " << stbi_failure_reason() << std::endl;
+    return 0;
+  }
+
+  unsigned int texture;
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D, texture);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+  stbi_image_free(data);
+
+  return texture;
+}
+
 int run(GLFWwindow* window) {
   std::cout << glGetString(GL_VERSION) << '\n';
 
-  // PNG's (0,0) is top-left  whereas OpenGL texture's (0,0) is bottom left
-  // v-value is opposite to image row order; flip only happens here
-  // This direction matches with the y-down map coordinate.
+  // Quad in tile-local space: [0, 1] on both axes, y down - the direction PNG rows
+  // and the world coordinate both run. Hence texture coords equal position: same space.
+  // NDC has y up, so the flip belongs to the tile-to-NDC transform, not here.
   float vertices[] = {
-      0.5f,    0.5f,   0.0f,   1.0f,  0.0f,// top-right
-      0.5f,   -0.5f,   0.0f,   1.0f,  1.0f,// bottom-right
-    -0.5f,  -0.5f,  0.0f,  0.0f, 1.0f,// bottom-left
-    -0.5f,   0.5f,  0.0f,  0.0f, 0.0f// top-left
+      1.0f,    0.0f,   0.0f,   1.0f,  0.0f,// top-right
+      1.0f,    1.0f,   0.0f,   1.0f,  1.0f,// bottom-right
+     0.0f,   1.0f,  0.0f,  0.0f, 1.0f,// bottom-left
+     0.0f,   0.0f,  0.0f,  0.0f, 0.0f// top-left
   };
 
   unsigned int indices[] = {
     0, 1, 3, // first-triangle 
     1, 2, 3 // second-triangle
   };
-
-  // load tiles/0/0/0.png
-  int width, height;
-  unsigned char *data = stbi_load("tiles/0/0/0.png", &width, &height, nullptr, 4);
-  if (!data) {
-    std::cout << "Failed to load texture: " << stbi_failure_reason() << std::endl;
-    return -1;
-  }
 
   Shader shader(vertexShaderSource, fragmentShaderSource);
   if(!shader.valid()) { return -1; }
@@ -76,17 +114,24 @@ int run(GLFWwindow* window) {
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
   glEnableVertexAttribArray(1);
 
-  unsigned int texture;
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
+  shader.use();
+  const int loc = glGetUniformLocation(shader.getShaderProgram(), "uTileRect");
+  if (loc == -1) { 
+    std::cerr << "uniform:uTileRect not found!" << std::endl;
+    return -1;
+  }
 
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-  stbi_image_free(data);
+  std::vector<Tile> tiles;
+  tiles.reserve(4);
+  for(int x=0; x<2; ++x) {
+    for(int y=0; y<2; ++y) {
+      std::string textureLoc = std::format("tiles/1/{}/{}.png", x, y);
+      unsigned int textureId = loadTexture(textureLoc.c_str());
+      if (textureId == 0) { return -1; }
+      TileId tileId{.z=1, .x=x, .y=y};
+      tiles.push_back({.id = tileId, .texture = textureId});
+    }
+  }
 
   while(!glfwWindowShouldClose(window)) {
     closeOnEscape(window);
@@ -95,7 +140,13 @@ int run(GLFWwindow* window) {
     
     shader.use();
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+
+    for(const Tile& tile : tiles) {
+      NDCRect ndc = tileToNDC(tile.id);
+      glUniform4f(loc, ndc.offsetX, ndc.offsetY, ndc.scaleX, ndc.scaleY);
+      glBindTexture(GL_TEXTURE_2D, tile.texture);
+      glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    }
     
     glfwSwapBuffers(window);
     glfwPollEvents();
