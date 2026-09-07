@@ -9,14 +9,15 @@ reading about it.
 
 ## Status
 
-Draws a 2x2 grid of zoom-1 tiles filling the window, each placed on screen from
-its z/x/y address. Web Mercator projection and tile addressing are implemented
-in `src/mercator.cpp` — not yet under test, and not yet consulted by the
-renderer: the tiles on screen are a hardcoded set rather than one chosen for a
-viewport.
+Draws a 2x2 grid of zoom-1 tiles through a 2D camera. The camera is a world
+position to centre on plus a continuous zoom level, and `tileToNDC` places each
+tile from its z/x/y address by way of that camera — so the map now holds its
+square shape in a window of any proportion, where before it stretched.
 
-No camera. The view is fixed, and the square world is stretched to the window's
-aspect ratio - both are what the next step fixes.
+No input yet: the camera's values are fixed in code, and the tiles on screen are
+a hardcoded set rather than one chosen for a viewport. Web Mercator projection
+and tile addressing are implemented in `src/mercator.cpp` — not yet under test,
+and not yet consulted by the renderer.
 
 ## Planned scope
 
@@ -46,6 +47,7 @@ play so far:
 | Tile-local | `[0,1]` within one tile | south | quad vertex positions |
 | Texture | `[0,1]` uv | south | quad vertex uvs |
 | Image | 256x256 integer pixels, row 0 is north | south | `stbi_load` buffer |
+| Screen | pixels, origin at the window centre | south | inside `tileToNDC` |
 | NDC | `[-1,1]`, origin at centre | **north** | `gl_Position` |
 
 World, tile id and tile-local describe the same point three ways: *where on
@@ -54,18 +56,37 @@ and *where inside that tile* (continuous). Tile-local and texture coordinates
 hold identical numbers because a tile's top-left corner is the image's first
 pixel - one space under two names.
 
+The camera crosses World to screen with a single scale: `256 * 2^zoom` pixels
+per world unit. That is the slippy-map convention — it makes one tile exactly
+256 pixels wide when the camera's zoom matches the tile's own z. Note that the
+camera's zoom is continuous while a tile's z is an integer; they are two
+numbers, and collapsing them into one is a mistake that hides until fractional
+zoom arrives.
+
+Those pixels are framebuffer pixels, not logical points. The same 800x600 window
+reports 800x600 on a 1x display and 1600x1200 on a Retina one, so the map is
+drawn at the display's true resolution — and covers half as much of the screen
+where the ratio is 2. Every pixel quantity here comes from
+`glfwGetFramebufferSize`, never `glfwGetWindowSize`.
+
 Two chains meet at the draw call:
 
-    where the tile goes:  LonLat -> World -> tile id + tile-local -> NDC
+    where the tile goes:  tile id + tile-local -> World -> screen -> NDC
     what colour it is:    image pixels -> texture -> sampled by uv
 
-Note the `y grows` column: every space runs southward except NDC. **The y axis
-is flipped exactly once in the whole pipeline, in the tile-to-NDC transform.**
-A second flip anywhere - `stbi_set_flip_vertically_on_load`, reversed texture
-coordinates - cancels the first and lands the map upside down.
+`LonLat -> World` is the projection in `src/mercator.cpp`, the way a geographic
+position enters the first chain.
 
-A screen space joins this list at the camera step, carrying a flip of its own:
-GLFW reports cursor positions with y down, OpenGL window coordinates with y up.
+Note the `y grows` column: every space runs southward except NDC. **The y axis
+is flipped exactly once in the whole pipeline, in the screen-to-NDC step at the
+end of `tileToNDC`.** A second flip anywhere - `stbi_set_flip_vertically_on_load`,
+reversed texture coordinates - cancels the first and lands the map upside down.
+
+Screen space in the table above is the renderer's own: pixels measured from the
+window centre. Input brings two more pixel conventions that are not it - GLFW
+reports cursor positions from the window's top-left with y down, and `glViewport`
+measures from the bottom-left with y up. Keeping the three apart is the next
+place a sign error can hide.
 
 ## Tiles
 

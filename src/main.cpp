@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <format>
+#include <cmath>
 
 #include "mercator.hpp"
 #include "shader.hpp"
@@ -15,6 +16,11 @@ struct NDCRect {
 struct Tile {
   TileId id;
   unsigned int texture;
+};
+
+struct Camera {
+  WorldPos center;
+  double zoom;
 };
 
 const char *vertexShaderSource = "#version 330 core\n"
@@ -43,12 +49,14 @@ void closeOnEscape(GLFWwindow* window) {
   }
 }
 
-NDCRect tileToNDC(TileId tile) {
+NDCRect tileToNDC(TileId tile, Camera camera, int w, int h) {
   int n = 1 << tile.z;
-  float scaleX =  2.0 / n;
-  float scaleY = -2.0 / n; // The one y flip in the pipeline: tile y grows south, NDC y grows north.
-  float offsetX = 2.0 * tile.x / n - 1.0;
-  float offsetY = 1.0 - 2.0 * tile.y / n;
+  double s = 256.0 * std::exp2(camera.zoom);
+
+  float scaleX =  (2.0 * s) / (static_cast<double>(n) * w);
+  float scaleY = -(2.0 * s) / (static_cast<double>(n) * h); // The one y flip in the pipeline: tile y grows south, NDC y grows north.
+  float offsetX = (2.0 * tile.x * s) / (static_cast<double>(n) * w) - (2.0 * s * camera.center.x) / w;
+  float offsetY = (2.0 * s * camera.center.y) / h - (2.0 * tile.y * s) / (static_cast<double>(n) * h);
   return {.offsetX = offsetX, .offsetY = offsetY, .scaleX = scaleX, .scaleY = scaleY};
 }
 
@@ -133,7 +141,13 @@ int run(GLFWwindow* window) {
     }
   }
 
+  Camera camera{{0.5, 0.5}, 1.0};
+
   while(!glfwWindowShouldClose(window)) {
+    int fbWidth, fbHeight;
+    glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
+    glViewport(0, 0, fbWidth, fbHeight);
+
     closeOnEscape(window);
     glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -142,7 +156,8 @@ int run(GLFWwindow* window) {
     glBindVertexArray(VAO);
 
     for(const Tile& tile : tiles) {
-      NDCRect ndc = tileToNDC(tile.id);
+      NDCRect ndc = tileToNDC(tile.id, camera, fbWidth, fbHeight);
+
       glUniform4f(loc, ndc.offsetX, ndc.offsetY, ndc.scaleX, ndc.scaleY);
       glBindTexture(GL_TEXTURE_2D, tile.texture);
       glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
