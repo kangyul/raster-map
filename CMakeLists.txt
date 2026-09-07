@@ -6,18 +6,6 @@ project(RasterMap LANGUAGES CXX)
 # flags each file is compiled with — including headers fetched into build/.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_executable(raster-map)
-
-target_sources(raster-map
-  PRIVATE
-    src/main.cpp src/shader.cpp src/stb_image_impl.cpp
-    src/mercator.cpp
-)
-
-target_compile_features(raster-map PRIVATE cxx_std_20)
-target_compile_definitions(raster-map PRIVATE GL_SILENCE_DEPRECATION)
-target_compile_options(raster-map PRIVATE -Wall -Wextra)
-
 include(FetchContent)
 
 FetchContent_Declare(
@@ -42,17 +30,26 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(stb)
 
-target_include_directories(raster-map PRIVATE ${stb_SOURCE_DIR})
-
 find_package(OpenGL REQUIRED)
+
+add_library(map-core OBJECT
+  src/shader.cpp
+  src/mercator.cpp
+  src/stb_image_impl.cpp
+)
+
+target_include_directories(map-core PUBLIC ${stb_SOURCE_DIR})
+target_compile_features(map-core PUBLIC cxx_std_20)
+target_compile_definitions(map-core PUBLIC GL_SILENCE_DEPRECATION)
+target_compile_options(map-core PUBLIC -Wall -Wextra)
+target_link_libraries(map-core PUBLIC glfw OpenGL::GL)
+
+add_executable(raster-map src/main.cpp)
+target_link_libraries(raster-map PRIVATE map-core)
 
 # Optional sandbox for experiments: `cp src/main.cpp src/scratch.cpp` and break
 # things freely. Untracked, so the target only exists when the file does.
 if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/scratch.cpp)
-  add_executable(scratch)
-  target_sources(scratch PRIVATE src/scratch.cpp)
-  target_compile_features(scratch PRIVATE cxx_std_20)
-  target_link_libraries(scratch PRIVATE glfw OpenGL::GL)
+  add_executable(scratch src/scratch.cpp)
+  target_link_libraries(scratch PRIVATE map-core)
 endif()
-
-target_link_libraries(raster-map PRIVATE glfw OpenGL::GL)
