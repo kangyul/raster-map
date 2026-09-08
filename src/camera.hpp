@@ -12,3 +12,5 @@ struct NDCRect {
 };
 
 NDCRect tileToNDC(TileId tile, Camera camera, int w, int h);
+double pixelsPerWorldUnit(double zoom);
+

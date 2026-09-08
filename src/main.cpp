@@ -77,7 +77,7 @@ int run(GLFWwindow* window) {
   };
 
   unsigned int indices[] = {
-    0, 1, 3, // first-triangle 
+    0, 1, 3, // first-triangle
     1, 2, 3 // second-triangle
   };
 
@@ -104,7 +104,7 @@ int run(GLFWwindow* window) {
 
   shader.use();
   const int loc = glGetUniformLocation(shader.getShaderProgram(), "uTileRect");
-  if (loc == -1) { 
+  if (loc == -1) {
     std::cerr << "uniform:uTileRect not found!" << std::endl;
     return -1;
   }
@@ -123,15 +123,47 @@ int run(GLFWwindow* window) {
 
   Camera camera{{0.5, 0.5}, 1.0};
 
+  bool dragging = false;
+  double lastX, lastY;
+
+  glfwGetCursorPos(window, &lastX, &lastY);
+
   while(!glfwWindowShouldClose(window)) {
     int fbWidth, fbHeight;
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     glViewport(0, 0, fbWidth, fbHeight);
 
+    int windowWidth, windowHeight;
+    glfwGetWindowSize(window, &windowWidth, &windowHeight);
+
+    int mouseButtonState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+
+    if(!dragging) {
+      if(mouseButtonState == GLFW_PRESS) {
+        dragging = true;
+        glfwGetCursorPos(window, &lastX, &lastY);
+      }
+    } else {
+      if(mouseButtonState == GLFW_PRESS) {
+        double currX, currY;
+        glfwGetCursorPos(window, &currX, &currY);
+        double deltaX = currX - lastX;
+        double deltaY = currY - lastY;
+
+        double worldDX = deltaX * fbWidth  / windowWidth  / pixelsPerWorldUnit(camera.zoom);
+        double worldDY = deltaY * fbHeight / windowHeight / pixelsPerWorldUnit(camera.zoom);
+        camera.center.x -= worldDX;
+        camera.center.y -= worldDY;
+
+        lastX = currX;
+        lastY = currY;
+      } else if(mouseButtonState == GLFW_RELEASE) { dragging = false; }
+    }
+
     closeOnEscape(window);
     glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    
+
     shader.use();
     glBindVertexArray(VAO);
 
@@ -142,7 +174,7 @@ int run(GLFWwindow* window) {
       glBindTexture(GL_TEXTURE_2D, tile.texture);
       glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
-    
+
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
@@ -157,10 +189,10 @@ int main() {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-  
+
   GLFWwindow* window = glfwCreateWindow(800, 600, "raster-map", nullptr, nullptr);
-  if (!window) { 
-    glfwTerminate();  
+  if (!window) {
+    glfwTerminate();
     return -1;
   }
 
