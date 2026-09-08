@@ -1,7 +1,7 @@
 #pragma once
 
 // atan(sinh(pi)) in degrees — the latitude where Mercator y hits pi.
-constexpr double kMaxLatitudeDeg = 85.0511287798066; 
+constexpr double kMaxLatitudeDeg = 85.0511287798066;
 
 struct LonLat {
   double lon, lat; // degrees
