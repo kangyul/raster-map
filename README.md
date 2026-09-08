@@ -79,8 +79,21 @@ position enters the first chain.
 
 Note the `y grows` column: every space runs southward except NDC. **The y axis
 is flipped exactly once in the whole pipeline, in the screen-to-NDC step at the
-end of `tileToNDC`.** A second flip anywhere - `stbi_set_flip_vertically_on_load`,
-reversed texture coordinates - cancels the first and lands the map upside down.
+end of `tileToNDC`.** A second flip does not simply cancel the first - where it
+is added decides how it fails.
+
+A texture-side flip - `stbi_set_flip_vertically_on_load`, reversed texture
+coordinates - leaves the quads where they are and only changes which texel a uv
+samples, so every tile mirrors inside its own rectangle. The tiles keep their
+north-to-south order while their contents do not: the vertical seams still line
+up and every horizontal one breaks. Back when a single quad covered the whole
+map this was indistinguishable from a plain upside-down map, which is where the
+simpler story came from.
+
+A geometry-side flip - the sign of `scaleY` - both mirrors and moves. `offset`
+pins the `v=0` edge and `scale` decides which way the tile grows from it, so
+reversing the sign slides each tile a full tile-height up the screen as well as
+mirroring it.
 
 Screen space in the table above is the renderer's own: pixels measured from the
 window centre. Input brings two more pixel conventions that are not it - GLFW
