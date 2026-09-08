@@ -14,10 +14,14 @@ position to centre on plus a continuous zoom level, and `tileToNDC` places each
 tile from its z/x/y address by way of that camera — so the map now holds its
 square shape in a window of any proportion, where before it stretched.
 
-No input yet: the camera's values are fixed in code, and the tiles on screen are
-a hardcoded set rather than one chosen for a viewport. Web Mercator projection
-and tile addressing are implemented in `src/mercator.cpp` — not yet under test,
-and not yet consulted by the renderer.
+Dragging pans the map. Zoom has no input yet: `camera.zoom` is a literal in
+`run()`, so the only way to change it is to edit and rebuild. Nothing clamps the
+centre either — a long enough drag walks the world off the screen and leaves the
+background, which is deliberate for now rather than decided.
+
+The tiles on screen are still a hardcoded set rather than one chosen for a
+viewport. Web Mercator projection and tile addressing are implemented in
+`src/mercator.cpp` — not yet under test, and not yet consulted by the renderer.
 
 ## Planned scope
 
@@ -63,11 +67,20 @@ camera's zoom is continuous while a tile's z is an integer; they are two
 numbers, and collapsing them into one is a mistake that hides until fractional
 zoom arrives.
 
+Panning runs that scale backwards. Write `screen = (p - centre) * s` for the
+frame before a mouse move and again for the frame after, holding `p` — the world
+point under the cursor — the same in both, and `p` drops out: `centre -= delta /
+s`. That cancellation is why dragging needs no unprojection and no hit test. It
+is also the whole of the input code: the camera moves, and neither the shader
+nor `tileToNDC` knows anything happened.
+
 Those pixels are framebuffer pixels, not logical points. The same 800x600 window
 reports 800x600 on a 1x display and 1600x1200 on a Retina one, so the map is
 drawn at the display's true resolution — and covers half as much of the screen
-where the ratio is 2. Every pixel quantity here comes from
-`glfwGetFramebufferSize`, never `glfwGetWindowSize`.
+where the ratio is 2. The two sizes have one job each: everything that renders
+takes framebuffer pixels from `glfwGetFramebufferSize` — `glViewport`, and the
+`w` and `h` in the transform — and `glfwGetWindowSize` is read for exactly one
+purpose, the ratio between the two units.
 
 Two chains meet at the draw call:
 
@@ -96,10 +109,14 @@ reversing the sign slides each tile a full tile-height up the screen as well as
 mirroring it.
 
 Screen space in the table above is the renderer's own: pixels measured from the
-window centre. Input brings two more pixel conventions that are not it - GLFW
-reports cursor positions from the window's top-left with y down, and `glViewport`
-measures from the bottom-left with y up. Keeping the three apart is the next
-place a sign error can hide.
+window centre. Two other pixel conventions are live alongside it and are not it -
+`glfwGetCursorPos` reports from the window's top-left in **logical points** with
+y down, and `glViewport` measures from the bottom-left in framebuffer pixels with
+y up. Cursor deltas therefore get scaled by the framebuffer-to-window ratio
+before they are divided by `s`; without that step panning tracks the cursor on a
+1x display and runs at half speed on a 2x one. Cursor y needs no flip, though,
+because it runs southward like the renderer's screen space - that agreement is
+why the y axis still flips exactly once.
 
 ## Tiles
 
