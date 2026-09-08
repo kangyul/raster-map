@@ -36,6 +36,7 @@ add_library(map-core OBJECT
   src/shader.cpp
   src/mercator.cpp
   src/stb_image_impl.cpp
+  src/camera.cpp
 )
 
 target_include_directories(map-core PUBLIC ${stb_SOURCE_DIR})
