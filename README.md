@@ -14,8 +14,8 @@ position to center on plus a continuous zoom level, and `tileToNDC` places each
 tile from its z/x/y address by way of that camera — so the map now holds its
 square shape in a window of any proportion, where before it stretched.
 
-Dragging pans the map. The zoom level changes when the scroll wheel or trackpad zooms
-toward the cursor. The point under the cursor stays where it is while the zoom changes.
+Dragging pans the map. The scroll wheel or trackpad zooms toward the cursor.
+The point under the cursor stays where it is while the zoom changes.
 The zoom level doesn't go below 0.
 
 The tiles on screen are still a hardcoded set rather than one chosen for a
