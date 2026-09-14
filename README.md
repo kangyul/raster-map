@@ -10,14 +10,13 @@ reading about it.
 ## Status
 
 Draws a 2x2 grid of zoom-1 tiles through a 2D camera. The camera is a world
-position to centre on plus a continuous zoom level, and `tileToNDC` places each
+position to center on plus a continuous zoom level, and `tileToNDC` places each
 tile from its z/x/y address by way of that camera — so the map now holds its
 square shape in a window of any proportion, where before it stretched.
 
-Dragging pans the map. Zoom has no input yet: `camera.zoom` is a literal in
-`run()`, so the only way to change it is to edit and rebuild. Nothing clamps the
-centre either — a long enough drag walks the world off the screen and leaves the
-background, which is deliberate for now rather than decided.
+Dragging pans the map. The zoom level changes when the scroll wheel or trackpad zooms
+toward the cursor. The point under the cursor stays where it is while the zoom changes.
+The zoom level doesn't go below 0.
 
 The tiles on screen are still a hardcoded set rather than one chosen for a
 viewport. Web Mercator projection and tile addressing are implemented in
@@ -29,7 +28,7 @@ viewport. Web Mercator projection and tile addressing are implemented in
 - [x] Render a single textured quad
 - [x] Load PNG tiles from disk
 - [x] Web Mercator projection and tile addressing (z/x/y)
-- [ ] Pan and zoom with a 2D camera
+- [x] Pan and zoom with a 2D camera
 - [ ] Load only the tiles the viewport needs
 - [ ] Tile cache with eviction
 - [ ] Fetch tiles over HTTP
@@ -74,6 +73,24 @@ s`. That cancellation is why dragging needs no unprojection and no hit test. It
 is also the whole of the input code: the camera moves, and neither the shader
 nor `tileToNDC` knows anything happened.
 
+Zooming holds the other variable fixed. The cursor stays put while `s` changes,
+so write the same equation with `m` - the cursor's offset from the window
+centre, in framebuffer pixels - at the scale before and after: `m = (p -
+centre) * s` and `m = (p - centre') * s'`. This time `p` does not drop out. It
+has to be recovered first, `p = centre + m / s`, which makes zoom the first
+place the renderer runs screen to World backwards - and running that inverse on
+the window's corners is how the next step will find which tiles the viewport
+needs. Substituting gives `centre' = centre + m / s - m / s'`, or read the other
+way, `centre' = p - m / s'`: the new centre sits `m / s'` from the pinned point,
+so each doubling of the scale halves the distance between them.
+
+Two checks catch the likely mistakes: `m = 0` must leave the centre alone, and
+so must `s' = s`. The second matters more than it looks, because the correction
+runs every frame whether or not anything scrolled - a flipped sign passes the
+first check and drifts the map with no input at all. For the same reason the
+zoom floor of `0` is applied before `s'` is computed: clamp afterwards and
+scrolling at the floor slides the map sideways while the zoom holds still.
+
 Those pixels are framebuffer pixels, not logical points. The same 800x600 window
 reports 800x600 on a 1x display and 1600x1200 on a Retina one, so the map is
 drawn at the display's true resolution — and covers half as much of the screen
@@ -114,7 +131,11 @@ window centre. Two other pixel conventions are live alongside it and are not it 
 y down, and `glViewport` measures from the bottom-left in framebuffer pixels with
 y up. Cursor deltas therefore get scaled by the framebuffer-to-window ratio
 before they are divided by `s`; without that step panning tracks the cursor on a
-1x display and runs at half speed on a 2x one. Cursor y needs no flip, though,
+1x display and runs at half speed on a 2x one. Zooming needs the cursor's
+position rather than its movement, so it also moves the origin: subtract half
+the window size, in logical points, and then scale. Leave the scaling out there
+and a 2x display pins the point halfway between the window centre and the
+cursor instead of the one under it. Cursor y needs no flip, though,
 because it runs southward like the renderer's screen space - that agreement is
 why the y axis still flips exactly once.
 

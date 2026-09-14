@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <format>
+#include <algorithm>
 
 #include "mercator.hpp"
 #include "shader.hpp"
@@ -12,6 +13,10 @@
 struct Tile {
   TileId id;
   unsigned int texture;
+};
+
+struct InputState {
+  double scrollY = 0.0;
 };
 
 const char *vertexShaderSource = "#version 330 core\n"
@@ -128,6 +133,14 @@ int run(GLFWwindow* window) {
 
   glfwGetCursorPos(window, &lastX, &lastY);
 
+  InputState input;
+  glfwSetWindowUserPointer(window, &input);
+
+  glfwSetScrollCallback(window, [](GLFWwindow* w, double /*xoff*/, double yoff) {
+    auto* input = static_cast<InputState*>(glfwGetWindowUserPointer(w));
+    input->scrollY += yoff;
+  });
+
   while(!glfwWindowShouldClose(window)) {
     int fbWidth, fbHeight;
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
@@ -137,6 +150,22 @@ int run(GLFWwindow* window) {
     glfwGetWindowSize(window, &windowWidth, &windowHeight);
 
     int mouseButtonState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+
+    double lastS = pixelsPerWorldUnit(camera.zoom);
+    camera.zoom = std::max(camera.zoom + input.scrollY * 0.05, 0.0);
+    input.scrollY = 0.0;
+    double currS = pixelsPerWorldUnit(camera.zoom);
+
+    double cursorX, cursorY;
+    glfwGetCursorPos(window, &cursorX, &cursorY);
+    double deltaX = cursorX - (windowWidth  / 2.0);
+    double deltaY = cursorY - (windowHeight / 2.0);
+
+    double mx = deltaX * fbWidth  / windowWidth;
+    double my = deltaY * fbHeight / windowHeight;
+
+    camera.center.x += mx/lastS - mx/currS;
+    camera.center.y += my/lastS - my/currS;
 
     if(!dragging) {
       if(mouseButtonState == GLFW_PRESS) {
