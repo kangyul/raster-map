@@ -32,10 +32,10 @@ LonLat unproject(WorldPos world) {
   return {.lon = lon, .lat = lat};
 }
 
-TileId tileAt(WorldPos world, int zoom) {
-  const int n = 1 << zoom;
+TileId tileAt(WorldPos world, int z) {
+  const int n = 1 << z;
   const int x = std::clamp(static_cast<int>(std::floor(world.x * n)), 0, n-1);
   const int y = std::clamp(static_cast<int>(std::floor(world.y * n)), 0, n-1);
 
-  return {.z = zoom, .x = x, .y = y};
+  return {.z = z, .x = x, .y = y};
 }

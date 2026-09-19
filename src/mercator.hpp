@@ -17,4 +17,4 @@ struct TileId {
 
 WorldPos project(LonLat);
 LonLat unproject(WorldPos);
-TileId tileAt(WorldPos, int zoom);
+TileId tileAt(WorldPos, int z);
