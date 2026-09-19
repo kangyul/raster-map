@@ -1,6 +1,7 @@
 #include <cmath>
 
 #include "camera.hpp"
+#include "mercator.hpp"
 
 NDCRect tileToNDC(TileId tile, Camera camera, int w, int h) {
   int n = 1 << tile.z;
@@ -17,3 +18,36 @@ double pixelsPerWorldUnit(double zoom) {
   return 256.0 * std::exp2(zoom);
 }
 
+WorldRect visibleWorldRect(Camera camera, int w, int h) {
+  WorldRect r;
+
+  double s = pixelsPerWorldUnit(camera.zoom);
+
+  double minX = camera.center.x - (w / 2.0) / s;
+  double minY = camera.center.y - (h / 2.0) / s;
+  r.min = {.x = minX, .y = minY};
+
+  double maxX = camera.center.x + (w / 2.0) / s;
+  double maxY = camera.center.y + (h / 2.0) / s;
+  r.max = {.x = maxX, .y = maxY};
+
+  return r;
+}
+
+std::vector<TileId> visibleTiles(Camera camera, int w, int h) {
+  const WorldRect r = visibleWorldRect(camera, w, h);
+  int z = static_cast<int>(std::floor(camera.zoom));
+
+  TileId minTile = tileAt(r.min, z);
+  TileId maxTile = tileAt(r.max, z);
+
+  std::vector<TileId> tiles;
+
+  for(int x = minTile.x; x <= maxTile.x; ++x) {
+    for(int y = minTile.y; y <= maxTile.y; ++y) {
+      tiles.push_back({.z = z, .x = x, .y = y});
+    }
+  }
+
+  return tiles;
+}
