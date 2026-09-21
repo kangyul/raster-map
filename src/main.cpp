@@ -1,19 +1,15 @@
 #include <OpenGL/gl3.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <vector>
+#include <map>
 #include <format>
+#include <string>
 #include <algorithm>
 
 #include "mercator.hpp"
 #include "shader.hpp"
 #include "stb_image.h"
 #include "camera.hpp"
-
-struct Tile {
-  TileId id;
-  unsigned int texture;
-};
 
 struct InputState {
   double scrollY = 0.0;
@@ -114,17 +110,7 @@ int run(GLFWwindow* window) {
     return -1;
   }
 
-  std::vector<Tile> tiles;
-  tiles.reserve(4);
-  for(int x=0; x<2; ++x) {
-    for(int y=0; y<2; ++y) {
-      std::string textureLoc = std::format("tiles/1/{}/{}.png", x, y);
-      unsigned int textureId = loadTexture(textureLoc.c_str());
-      if (textureId == 0) { return -1; }
-      TileId tileId{.z=1, .x=x, .y=y};
-      tiles.push_back({.id = tileId, .texture = textureId});
-    }
-  }
+  std::map<TileId, unsigned int> tiles;
 
   Camera camera{{0.5, 0.5}, 1.0};
 
@@ -196,11 +182,18 @@ int run(GLFWwindow* window) {
     shader.use();
     glBindVertexArray(VAO);
 
-    for(const Tile& tile : tiles) {
-      NDCRect ndc = tileToNDC(tile.id, camera, fbWidth, fbHeight);
+    for(const TileId& tile : visibleTiles(camera, fbWidth, fbHeight)) {
+      if (tiles.find(tile) == tiles.end()) {
+        std::string textureLoc = std::format("tiles/{}/{}/{}.png", tile.z, tile.x, tile.y);
+        unsigned int textureId = loadTexture(textureLoc.c_str());
+        tiles[tile] = textureId;
+      }
 
+      if (tiles[tile] == 0) { continue; }
+
+      NDCRect ndc = tileToNDC(tile, camera, fbWidth, fbHeight);
       glUniform4f(loc, ndc.offsetX, ndc.offsetY, ndc.scaleX, ndc.scaleY);
-      glBindTexture(GL_TEXTURE_2D, tile.texture);
+      glBindTexture(GL_TEXTURE_2D, tiles[tile]);
       glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 

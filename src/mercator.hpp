@@ -13,6 +13,16 @@ struct WorldPos {
 
 struct TileId {
   int z, x, y;
+
+  bool operator<(const TileId& rhs) const {
+    if(z != rhs.z) {
+      return z < rhs.z;
+    } else if (x != rhs.x) {
+      return x < rhs.x;
+    } else {
+      return y < rhs.y;
+    }
+  }
 };
 
 WorldPos project(LonLat);

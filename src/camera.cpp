@@ -1,7 +1,11 @@
+#include <algorithm>
 #include <cmath>
 
 #include "camera.hpp"
 #include "mercator.hpp"
+
+// max tile z on the disk
+constexpr int kMaxTileZ = 5;
 
 NDCRect tileToNDC(TileId tile, Camera camera, int w, int h) {
   int n = 1 << tile.z;
@@ -36,7 +40,9 @@ WorldRect visibleWorldRect(Camera camera, int w, int h) {
 
 std::vector<TileId> visibleTiles(Camera camera, int w, int h) {
   const WorldRect r = visibleWorldRect(camera, w, h);
-  int z = static_cast<int>(std::floor(camera.zoom));
+  // GL_NEAREST doens't have a mipmap so round will reduce the size of a tile; MapLibre uses round
+  // This needs to be changed to round when mipmap or GL_LINEAR is implemented.
+  int z = std::clamp(static_cast<int>(std::floor(camera.zoom)), 0, kMaxTileZ);
 
   TileId minTile = tileAt(r.min, z);
   TileId maxTile = tileAt(r.max, z);
