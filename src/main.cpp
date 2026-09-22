@@ -5,14 +5,22 @@
 #include <format>
 #include <string>
 #include <algorithm>
+#include <cstdint>
 
 #include "mercator.hpp"
 #include "shader.hpp"
 #include "stb_image.h"
 #include "camera.hpp"
 
+constexpr std::size_t kMaxCachedTiles = 64;
+
 struct InputState {
   double scrollY = 0.0;
+};
+
+struct TileEntry {
+  unsigned int textureId;
+  std::uint64_t lastSeenFrame;
 };
 
 const char *vertexShaderSource = "#version 330 core\n"
@@ -110,7 +118,7 @@ int run(GLFWwindow* window) {
     return -1;
   }
 
-  std::map<TileId, unsigned int> tiles;
+  std::map<TileId, TileEntry> tiles;
 
   Camera camera{{0.5, 0.5}, 1.0};
 
@@ -127,7 +135,11 @@ int run(GLFWwindow* window) {
     input->scrollY += yoff;
   });
 
+  std::uint64_t frame = 0;
+
   while(!glfwWindowShouldClose(window)) {
+    ++frame;
+
     int fbWidth, fbHeight;
     glfwGetFramebufferSize(window, &fbWidth, &fbHeight);
     glViewport(0, 0, fbWidth, fbHeight);
@@ -186,14 +198,29 @@ int run(GLFWwindow* window) {
       if (tiles.find(tile) == tiles.end()) {
         std::string textureLoc = std::format("tiles/{}/{}/{}.png", tile.z, tile.x, tile.y);
         unsigned int textureId = loadTexture(textureLoc.c_str());
-        tiles[tile] = textureId;
+        tiles[tile] = {textureId, frame};
+
+        // LRU cache
+        if (tiles.size() > kMaxCachedTiles) {
+          auto oldest = tiles.begin();
+          for (auto it = tiles.begin(); it != tiles.end(); ++it) {
+            if (it->second.lastSeenFrame < oldest->second.lastSeenFrame) {
+              oldest = it;
+            }
+          }
+
+          glDeleteTextures(1, &oldest->second.textureId);
+          tiles.erase(oldest);
+        }
       }
 
-      if (tiles[tile] == 0) { continue; }
+      tiles[tile].lastSeenFrame = frame;
+
+      if (tiles[tile].textureId == 0) { continue; }
 
       NDCRect ndc = tileToNDC(tile, camera, fbWidth, fbHeight);
       glUniform4f(loc, ndc.offsetX, ndc.offsetY, ndc.scaleX, ndc.scaleY);
-      glBindTexture(GL_TEXTURE_2D, tiles[tile]);
+      glBindTexture(GL_TEXTURE_2D, tiles[tile].textureId);
       glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
     }
 
