@@ -6,13 +6,14 @@
 #include <string>
 #include <algorithm>
 #include <cstdint>
+#include <vector>
 
 #include "mercator.hpp"
 #include "shader.hpp"
 #include "stb_image.h"
 #include "camera.hpp"
 
-constexpr std::size_t kMaxCachedTiles = 64;
+constexpr std::size_t kMaxCachedTiles = 128;
 
 struct InputState {
   double scrollY = 0.0;
@@ -194,24 +195,13 @@ int run(GLFWwindow* window) {
     shader.use();
     glBindVertexArray(VAO);
 
-    for(const TileId& tile : visibleTiles(camera, fbWidth, fbHeight)) {
+    std::vector<TileId> visible = visibleTiles(camera, fbWidth, fbHeight);
+
+    for(const TileId& tile : visible) {
       if (tiles.find(tile) == tiles.end()) {
         std::string textureLoc = std::format("tiles/{}/{}/{}.png", tile.z, tile.x, tile.y);
         unsigned int textureId = loadTexture(textureLoc.c_str());
         tiles[tile] = {textureId, frame};
-
-        // LRU cache
-        if (tiles.size() > kMaxCachedTiles) {
-          auto oldest = tiles.begin();
-          for (auto it = tiles.begin(); it != tiles.end(); ++it) {
-            if (it->second.lastSeenFrame < oldest->second.lastSeenFrame) {
-              oldest = it;
-            }
-          }
-
-          glDeleteTextures(1, &oldest->second.textureId);
-          tiles.erase(oldest);
-        }
       }
 
       tiles[tile].lastSeenFrame = frame;
@@ -222,6 +212,19 @@ int run(GLFWwindow* window) {
       glUniform4f(loc, ndc.offsetX, ndc.offsetY, ndc.scaleX, ndc.scaleY);
       glBindTexture(GL_TEXTURE_2D, tiles[tile].textureId);
       glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, (void*)0);
+    }
+
+    const std::size_t cap = std::max(kMaxCachedTiles, 2 * visible.size());
+
+    while(tiles.size() > cap) {
+      auto oldest = tiles.begin();
+      for (auto it = tiles.begin(); it != tiles.end(); ++it) {
+        if (it->second.lastSeenFrame < oldest->second.lastSeenFrame) {
+          oldest = it;
+        }
+      }
+      glDeleteTextures(1, &oldest->second.textureId);
+      tiles.erase(oldest);
     }
 
     glfwSwapBuffers(window);

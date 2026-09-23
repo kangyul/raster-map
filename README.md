@@ -30,7 +30,7 @@ viewport. Web Mercator projection and tile addressing are implemented in
 - [x] Web Mercator projection and tile addressing (z/x/y)
 - [x] Pan and zoom with a 2D camera
 - [x] Load only the tiles the viewport needs
-- [ ] Tile cache with eviction
+- [x] Tile cache with eviction
 - [ ] Fetch tiles over HTTP
 
 Tiles are read from local files to begin with, so the early work stays focused
