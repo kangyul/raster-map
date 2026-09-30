@@ -9,18 +9,26 @@ reading about it.
 
 ## Status
 
-Draws a 2x2 grid of zoom-1 tiles through a 2D camera. The camera is a world
+Draws the tiles the viewport needs, through a 2D camera. The camera is a world
 position to center on plus a continuous zoom level, and `tileToNDC` places each
-tile from its z/x/y address by way of that camera — so the map now holds its
-square shape in a window of any proportion, where before it stretched.
+tile from its z/x/y address by way of that camera, so the map holds its square
+shape in a window of any proportion.
 
 Dragging pans the map. The scroll wheel or trackpad zooms toward the cursor.
 The point under the cursor stays where it is while the zoom changes.
 The zoom level doesn't go below 0.
 
-The tiles on screen are still a hardcoded set rather than one chosen for a
-viewport. Web Mercator projection and tile addressing are implemented in
-`src/mercator.cpp` — not yet under test, and not yet consulted by the renderer.
+Each frame, `visibleTiles` inverts the camera on the window's edges to get the
+World rectangle on screen, picks the tile level `floor(zoom)` (clamped to the
+z0–z5 pyramid on disk), and converts the rectangle's corners into a range of
+tile ids with `tileAt` from `src/mercator.cpp`. A tile's PNG is loaded the first
+time the tile comes into view. Past zoom 5 the z5 tiles are simply drawn larger.
+
+Loaded textures live in a least-recently-used cache. Every visible tile is
+stamped with the current frame number, and after drawing, the oldest entries are
+deleted until the cache holds no more than `max(128, 2 × visible tiles)`. A
+tile whose file failed to load stays cached as a blank entry, so a missing file
+is not re-read every frame.
 
 ## Planned scope
 
@@ -79,7 +87,7 @@ centre, in framebuffer pixels - at the scale before and after: `m = (p -
 centre) * s` and `m = (p - centre') * s'`. This time `p` does not drop out. It
 has to be recovered first, `p = centre + m / s`, which makes zoom the first
 place the renderer runs screen to World backwards - and running that inverse on
-the window's corners is how the next step will find which tiles the viewport
+the window's corners is how `visibleTiles` finds which tiles the viewport
 needs. Substituting gives `centre' = centre + m / s - m / s'`, or read the other
 way, `centre' = p - m / s'`: the new centre sits `m / s'` from the pinned point,
 so each doubling of the scale halves the distance between them.
@@ -141,27 +149,22 @@ why the y axis still flips exactly once.
 
 ## Tiles
 
-Tile images are not checked in — they are not ours to redistribute. Fetch the
-four the program currently expects:
+Tile images are not checked in — they are not ours to redistribute. The program
+reads them from `tiles/{z}/{x}/{y}.png` and expects the full pyramid from z0 to
+z5 (1365 tiles). `scripts/fetch_tiles.sh` downloads it from MapTiler, which
+needs a free API key:
 
 ```bash
-for x in 0 1; do
-  mkdir -p "tiles/1/$x"
-  for y in 0 1; do
-    curl -A "raster-map/0.1 (learning project)" \
-         -o "tiles/1/$x/$y.png" "https://tile.openstreetmap.org/1/$x/$y.png"
-  done
-done
+MAPTILER_KEY=your-key ./scripts/fetch_tiles.sh      # z0..z5
+MAPTILER_KEY=your-key ./scripts/fetch_tiles.sh 3    # stop at z3
 ```
 
-That is the whole world at zoom 1, quartered. The `-A` is not optional:
-OpenStreetMap's tile policy requires a User-Agent that identifies the
-application, and a request without one comes back as HTTP 200 carrying an
-"access blocked" image rather than an error — so it fails silently, and the map
-renders the notice.
+The script skips files it already has, so it is safe to re-run after an
+interruption, and it reports any tiles that failed. A missing tile is not fatal:
+the renderer leaves that square empty. The renderer never looks past z5, so
+fetching deeper levels only takes up disk space.
 
-Tile data is © OpenStreetMap contributors; the public tile server is for light
-use only, not bulk downloading.
+Tiles are the MapTiler Aquarelle style: © MapTiler © OpenStreetMap contributors.
 
 ## Building
 
